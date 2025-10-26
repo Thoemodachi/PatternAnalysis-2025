@@ -53,7 +53,13 @@ Predictions are written to the directory supplied via `--project`/`--name` (e.g.
 
 ## SLURM Usage Tips
 - Package the commands above into your SLURM script (e.g., `sbatch train.sbatch`) after activating the Conda environment.
-- Run all SLURM batch requests in the root location of this project, that way the given commands in this brief work for every system.
+- Run all SLURM batch requests from the repository root so the relative paths resolve as documented.
 - `--work-dir` defaults to `recognition/s4747674_YOLO`, keeping prepared data under version control boundaries.
 - Training runs default to `recognition/s4747674_YOLO/runs`; inference runs default to `recognition/s4747674_YOLO/inference_runs`.
 - Ultralytics checkpoints and plots are modest in size; periodically clean up these run directories when rerunning experiments.
+
+### Provided Batch Scripts
+- `recognition/s4747674_YOLO/sbatch_train.sh`: launches the full training job and logs to `recognition/s4747674_YOLO/logs/`.
+- `recognition/s4747674_YOLO/sbatch_val.sh`: performs validation on the saved checkpoint.
+- `recognition/s4747674_YOLO/sbatch_infer.sh`: runs inference over the prepared test split and saves annotated outputs.
+Submit them with `sbatch recognition/s4747674_YOLO/sbatch_train.sh` (or the corresponding validation/inference script). Each script sources Conda, activates `isic-yolo`, and assumes the ISIC data live at `/home/groups/comp3710/ISIC2018`.
