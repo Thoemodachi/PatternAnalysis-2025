@@ -4,15 +4,14 @@ import random
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
-import pandas as pd
 
 from . import utils
 
 
-CLASSES = ["MEL", "NV", "BCC", "AKIEC", "BKL", "DF", "VASC"]
+DEFAULT_CLASSES: Sequence[str] = ("lesion",)
 
 
 @dataclass
@@ -22,8 +21,7 @@ class ISICDatasetConfig:
     root: Path
     images_dir: Path = field(init=False)
     masks_dir: Path = field(init=False)
-    metadata_csv: Path = field(init=False)
-    class_names: Sequence[str] = tuple(CLASSES)
+    class_names: Sequence[str] = field(default_factory=lambda: DEFAULT_CLASSES)
     train_ratio: float = 0.7
     val_ratio: float = 0.15
     test_ratio: float = 0.15
@@ -32,13 +30,31 @@ class ISICDatasetConfig:
 
     def __post_init__(self) -> None:
         self.root = Path(self.root)
-        self.images_dir = self.root / "ISIC2018_Task1-2_Training_Input"
-        self.masks_dir = self.root / "ISIC2018_Task1_Training_GroundTruth"
-        self.metadata_csv = self.root / "ISIC2018_Task3_Training_GroundTruth.csv"
+        self.images_dir = self._resolve_dir(
+            [
+                self.root / "ISIC2018_Task1-2_Training_Input",
+                self.root / "ISIC2018_Task1-2_Training_Input_x2",
+            ]
+        )
+        self.masks_dir = self._resolve_dir(
+            [
+                self.root / "ISIC2018_Task1_Training_GroundTruth",
+                self.root / "ISIC2018_Task1_Training_GroundTruth_x2",
+            ]
+        )
         total = self.train_ratio + self.val_ratio + self.test_ratio
         if not np.isclose(total, 1.0):
             raise ValueError("train/val/test ratios must sum to 1.0")
 
+    @staticmethod
+    def _resolve_dir(candidates: Sequence[Path]) -> Path:
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        raise FileNotFoundError(
+            "None of the directory candidates exist: "
+            + ", ".join(str(path) for path in candidates)
+        )
 
 @dataclass
 class ISICSample:
@@ -74,48 +90,61 @@ class ISICYoloDatasetBuilder:
         return yaml_path
 
     def _collect_samples(self) -> List[ISICSample]:
-        metadata = pd.read_csv(self.config.metadata_csv)
-        label_columns = [c for c in metadata.columns if c in self.config.class_names]
-        if not label_columns:
-            raise ValueError(
-                "No class columns found in metadata CSV. Expected one of "
-                f"{self.config.class_names}."
+        samples = self._collect_from_files()
+        if not samples:
+            raise RuntimeError(
+                "No valid ISIC samples discovered. Check dataset paths and mask naming."
             )
 
-        class_lookup: Dict[str, int] = {name: idx for idx, name in enumerate(self.config.class_names)}
+        return samples
 
+    def _collect_from_files(self) -> List[ISICSample]:
         samples: List[ISICSample] = []
-        for row in metadata.itertuples(index=False):
-            image_id = getattr(row, "image")
-            labels = np.array([getattr(row, col) for col in label_columns], dtype=float)
-            if labels.sum() == 0:
+        for image_path in sorted(self.config.images_dir.glob("*.jpg")):
+            image_id = image_path.stem
+            mask_path = self._find_mask(image_id)
+            if mask_path is None:
                 continue
-            class_index = int(labels.argmax())
-
-            image_path = self.config.images_dir / f"{image_id}.jpg"
-            mask_path = self.config.masks_dir / f"{image_id}_segmentation.png"
-            if not image_path.exists() or not mask_path.exists():
-                continue
-
             mask = utils.load_mask(mask_path)
             if mask.sum() < self.config.min_mask_area:
                 continue
-
             samples.append(
                 ISICSample(
                     image_id=image_id,
                     image_path=image_path,
                     mask_path=mask_path,
-                    class_index=class_index,
+                    class_index=0,
                 )
             )
-
-        if not samples:
-            raise RuntimeError(
-                "No valid ISIC samples discovered. Check dataset paths and metadata CSV."
+        for image_path in sorted(self.config.images_dir.glob("*.png")):
+            image_id = image_path.stem
+            mask_path = self._find_mask(image_id)
+            if mask_path is None:
+                continue
+            mask = utils.load_mask(mask_path)
+            if mask.sum() < self.config.min_mask_area:
+                continue
+            samples.append(
+                ISICSample(
+                    image_id=image_id,
+                    image_path=image_path,
+                    mask_path=mask_path,
+                    class_index=0,
+                )
             )
-
         return samples
+
+    def _find_mask(self, image_id: str) -> Optional[Path]:
+        candidates = [
+            self.config.masks_dir / f"{image_id}_segmentation.png",
+            self.config.masks_dir / f"{image_id}_segmentation.jpg",
+            self.config.masks_dir / f"{image_id}.png",
+            self.config.masks_dir / f"{image_id}.jpg",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
 
     def _split_samples(self, samples: Sequence[ISICSample]) -> Dict[str, List[ISICSample]]:
         rng = random.Random(self.config.seed)

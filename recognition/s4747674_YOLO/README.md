@@ -1,5 +1,5 @@
 # ISIC Lesion Detection Workflow
-This package trains and evaluates a YOLOv8 detector on the ISIC 2018 dermoscopy dataset. It converts the segmentation masks into YOLO-ready bounding boxes, launches Ultralytics training, and runs inference for qualitative checks.
+This package trains and evaluates a YOLOv8 detector on the ISIC 2018 dermoscopy dataset. It converts the segmentation masks into YOLO-ready bounding boxes, launches Ultralytics training, and runs inference for qualitative checks. The current workflow operates as a single-class lesion detector driven solely by the segmentation masks.
 
 ## Environment Setup
 ```bash
@@ -50,4 +50,4 @@ Predictions are written to `runs/isic_pred/` (configurable via `--project`/`--na
 - `--device cuda:0`: choose GPU or CPU explicitly.
 - `--conf 0.4`: adjust confidence threshold when running inference.
 - `--export`: available via `YOLODetector.export` if you need ONNX/TensorRT exports.
-
+- The default dataset builder assumes a single `lesion` class. Extend `ISICDatasetConfig.class_names` and the loader if you later incorporate per-class metadata.
