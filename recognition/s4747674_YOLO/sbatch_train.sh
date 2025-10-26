@@ -8,13 +8,9 @@
 #SBATCH --time=5:00:00
 #SBATCH --output=recognition/s4747674_YOLO/logs/train_%j.out
 
-set -euo pipefail
-
 mkdir -p recognition/s4747674_YOLO/logs
 
 conda activate isic-yolo
-
-cd "$SLURM_SUBMIT_DIR"
 
 python -m recognition.s4747674_YOLO.train \
   --data-root /home/groups/comp3710/ISIC2018 \
