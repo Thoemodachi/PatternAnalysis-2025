@@ -16,7 +16,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--save", action="store_true", help="Persist annotated predictions")
-    parser.add_argument("--project", type=str, default="runs/isic_pred")
+    default_project = (Path(__file__).resolve().parent / "inference_runs").resolve()
+    parser.add_argument(
+        "--project",
+        type=Path,
+        default=default_project,
+        help="Output directory for inference runs",
+    )
     parser.add_argument("--name", type=str, default="inference")
     return parser.parse_args()
 
@@ -29,7 +35,7 @@ def main() -> None:
         conf=args.conf,
         imgsz=args.imgsz,
         save=args.save,
-        project=args.project,
+        project=str(args.project),
         name=args.name,
         exist_ok=True,
     )

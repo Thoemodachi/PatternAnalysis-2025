@@ -14,16 +14,15 @@ pip install pandas matplotlib scikit-image pyyaml
 ```bash
 python -m recognition.s4747674_YOLO.train \
   --data-root /home/groups/comp3710/ISIC2018 \
-  --work-dir /scratch/$USER/isic-yolo \
   --model yolov8m.pt \
   --epochs 100 \
   --batch 32 \
   --imgsz 640 \
-  --project runs/isic \
+  --project recognition/s4747674_YOLO/runs \
   --name yolov8m_isic
 ```
 This command will
-- build `prepared/` inside `--work-dir` with YOLO-formatted images, labels, and `isic.yaml`;
+- build `prepared/` inside `--work-dir` (default: `recognition/s4747674_YOLO/prepared`) with YOLO-formatted images, labels, and `isic.yaml`;
 - train the YOLO model (resumable via `--resume`);
 - generate `results.csv` plus loss/metric plots in the Ultralytics run directory.
 
@@ -31,19 +30,19 @@ This command will
 ```bash
 python -m recognition.s4747674_YOLO.train \
   --data-root /home/groups/comp3710/ISIC2018 \
-  --work-dir /scratch/$USER/isic-yolo \
-  --model runs/isic/yolov8m_isic/weights/best.pt \
+  --model recognition/s4747674_YOLO/runs/yolov8m_isic/weights/best.pt \
   --val-only
 ```
 
 ## Inference & Visualisation
 ```bash
 python -m recognition.s4747674_YOLO.predict \
-  --model runs/isic/yolov8m_isic/weights/best.pt \
-  --source /scratch/$USER/isic-yolo/prepared/images/test \
-  --save
+  --model recognition/s4747674_YOLO/runs/yolov8m_isic/weights/best.pt \
+  --source recognition/s4747674_YOLO/prepared/images/test \
+  --save \
+  --project recognition/s4747674_YOLO/inference_runs
 ```
-Predictions are written to `runs/isic_pred/` (configurable via `--project`/`--name`).
+Predictions are written to the directory supplied via `--project`/`--name` (e.g., `recognition/s4747674_YOLO/inference_runs/yolov8m_isic`).
 
 ## Helpful Flags
 - `--force`: rebuild the YOLO dataset even if it already exists.
@@ -51,3 +50,10 @@ Predictions are written to `runs/isic_pred/` (configurable via `--project`/`--na
 - `--conf 0.4`: adjust confidence threshold when running inference.
 - `--export`: available via `YOLODetector.export` if you need ONNX/TensorRT exports.
 - The default dataset builder assumes a single `lesion` class. Extend `ISICDatasetConfig.class_names` and the loader if you later incorporate per-class metadata.
+
+## SLURM Usage Tips
+- Package the commands above into your SLURM script (e.g., `sbatch train.sbatch`) after activating the Conda environment.
+- Run all SLURM batch requests in the root location of this project, that way the given commands in this brief work for every system.
+- `--work-dir` defaults to `recognition/s4747674_YOLO`, keeping prepared data under version control boundaries.
+- Training runs default to `recognition/s4747674_YOLO/runs`; inference runs default to `recognition/s4747674_YOLO/inference_runs`.
+- Ultralytics checkpoints and plots are modest in size; periodically clean up these run directories when rerunning experiments.

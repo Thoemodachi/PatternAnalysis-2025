@@ -1,0 +1,4 @@
+recognition/s4747674_YOLO/prepared/
+recognition/s4747674_YOLO/runs/
+recognition/s4747674_YOLO/inference_runs/
+recognition/s4747674_YOLO/*.pt
