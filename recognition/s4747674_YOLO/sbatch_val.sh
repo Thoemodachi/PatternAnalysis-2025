@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --partition=a100
 #SBATCH --job-name=isic-yolo-val
-#SBATCH --time=30:00
+#SBATCH --time=5:00:00
 #SBATCH --output=recognition/s4747674_YOLO/logs/val_%j.out
 
 set -euo pipefail
