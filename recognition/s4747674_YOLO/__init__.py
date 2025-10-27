@@ -1,1 +1,1 @@
-# Detect lesions within ISIC 2017/2018 dataset
+# Package initialiser for the ISIC lesion detection workflow

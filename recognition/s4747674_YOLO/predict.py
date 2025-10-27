@@ -1,14 +1,10 @@
-"""Inference helper for the trained ISIC YOLO detector."""
-
-from __future__ import annotations
-
 import argparse
+from __future__ import annotations
 from pathlib import Path
-
 from .modules import YOLODetector
 
-
 def parse_args() -> argparse.Namespace:
+    """Parse command line arguments describing the inference configuration."""
     parser = argparse.ArgumentParser(description="Run inference with trained YOLO model")
     parser.add_argument("--model", type=str, required=True, help="Path to trained weights or model name")
     parser.add_argument("--source", type=str, required=True, help="Image file, directory, or glob pattern")
@@ -26,9 +22,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--name", type=str, default="inference")
     return parser.parse_args()
 
-
 def main() -> None:
     args = parse_args()
+    # Load the YOLO model using the lightweight wrapper so device handling is centralised
     detector = YOLODetector(model_path=args.model, device=args.device)
     predictions = detector.predict(
         source=args.source,
@@ -43,6 +39,7 @@ def main() -> None:
     for result in predictions:
         path = Path(result.path)
         if getattr(result, "boxes", None) is not None:
+            # Move tensors to CPU for logging to ensure compatibility with SLURM logs
             boxes = result.boxes.xyxy.cpu().tolist()
             scores = result.boxes.conf.cpu().tolist()
             classes = result.boxes.cls.cpu().tolist()
@@ -53,7 +50,6 @@ def main() -> None:
             for cls, score, bbox in zip(classes, scores, boxes)
         )
         print(f"{path.name}: {summary or 'no detections'}")
-
 
 if __name__ == "__main__":
     main()

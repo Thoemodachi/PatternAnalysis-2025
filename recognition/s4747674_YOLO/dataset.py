@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import random
 import shutil
+import numpy as np
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
-
-import numpy as np
-
 from . import utils
 
-
 DEFAULT_CLASSES: Sequence[str] = ("lesion",)
-
 
 @dataclass
 class ISICDatasetConfig:
@@ -26,9 +22,10 @@ class ISICDatasetConfig:
     val_ratio: float = 0.15
     test_ratio: float = 0.15
     seed: int = 13
-    min_mask_area: int = 20  # ignore tiny artifacts
+    min_mask_area: int = 20
 
     def __post_init__(self) -> None:
+        """Resolve dataset directories and validate configured split ratios."""
         self.root = Path(self.root)
         self.images_dir = self._resolve_dir(
             [
@@ -58,6 +55,7 @@ class ISICDatasetConfig:
 
 @dataclass
 class ISICSample:
+    """Lightweight record tying an image to its mask and YOLO class index."""
     image_id: str
     image_path: Path
     mask_path: Path
@@ -77,6 +75,7 @@ class ISICYoloDatasetBuilder:
 
         yaml_path = self.dataset_root / "isic.yaml"
         if yaml_path.exists() and not force:
+            # Reuse previously prepared assets unless a rebuild is explicitly requested
             return yaml_path
 
         utils.ensure_dir(self.dataset_root)
@@ -90,6 +89,7 @@ class ISICYoloDatasetBuilder:
         return yaml_path
 
     def _collect_samples(self) -> List[ISICSample]:
+        """Gather dataset samples, filtering out entries without valid masks."""
         samples = self._collect_from_files()
         if not samples:
             raise RuntimeError(
@@ -99,6 +99,7 @@ class ISICYoloDatasetBuilder:
         return samples
 
     def _collect_from_files(self) -> List[ISICSample]:
+        """Walk the image directory to match each image with its segmentation mask."""
         samples: List[ISICSample] = []
         for image_path in sorted(self.config.images_dir.glob("*.jpg")):
             image_id = image_path.stem
@@ -107,6 +108,7 @@ class ISICYoloDatasetBuilder:
                 continue
             mask = utils.load_mask(mask_path)
             if mask.sum() < self.config.min_mask_area:
+                # Ignore samples where the segmentation is effectively empty noise
                 continue
             samples.append(
                 ISICSample(
@@ -117,12 +119,14 @@ class ISICYoloDatasetBuilder:
                 )
             )
         for image_path in sorted(self.config.images_dir.glob("*.png")):
+            # Some sites provide PNG assets; process them in the same manner
             image_id = image_path.stem
             mask_path = self._find_mask(image_id)
             if mask_path is None:
                 continue
             mask = utils.load_mask(mask_path)
             if mask.sum() < self.config.min_mask_area:
+                # Ignore samples where the segmentation is effectively empty noise
                 continue
             samples.append(
                 ISICSample(
@@ -135,6 +139,7 @@ class ISICYoloDatasetBuilder:
         return samples
 
     def _find_mask(self, image_id: str) -> Optional[Path]:
+        """Identify the matching segmentation mask file for a given image identifier."""
         candidates = [
             self.config.masks_dir / f"{image_id}_segmentation.png",
             self.config.masks_dir / f"{image_id}_segmentation.jpg",
@@ -147,9 +152,11 @@ class ISICYoloDatasetBuilder:
         return None
 
     def _split_samples(self, samples: Sequence[ISICSample]) -> Dict[str, List[ISICSample]]:
+        """Shuffle and partition samples according to the configured ratios."""
         rng = random.Random(self.config.seed)
         shuffled = list(samples)
         rng.shuffle(shuffled)
+        # Deterministic boundaries ensure downstream reproducibility across runs
         total = len(shuffled)
         train_end = int(total * self.config.train_ratio)
         val_end = train_end + int(total * self.config.val_ratio)
@@ -165,17 +172,20 @@ class ISICYoloDatasetBuilder:
         image_root: Path,
         label_root: Path,
     ) -> None:
+        """Populate the YOLO directory structure for a dataset split."""
         split_image_dir = utils.ensure_dir(image_root / split)
         split_label_dir = utils.ensure_dir(label_root / split)
         for sample in samples:
             target_image = split_image_dir / sample.image_path.name
             if not target_image.exists():
+                # Prefer symbolic links to minimise storage overhead when the filesystem permits
                 self._link_or_copy(sample.image_path, target_image)
 
             label_path = split_label_dir / f"{sample.image_id}.txt"
             self._write_label(label_path, sample)
 
     def _write_label(self, label_path: Path, sample: ISICSample) -> None:
+        """Convert segmentation masks into YOLO-compatible bounding box annotations."""
         image = utils.load_image(sample.image_path)
         width, height = image.size
         mask = utils.load_mask(sample.mask_path)
@@ -191,6 +201,7 @@ class ISICYoloDatasetBuilder:
         label_path.write_text("\n".join(lines), encoding="utf-8")
 
     def _write_dataset_yaml(self, yaml_path: Path, image_root: Path) -> None:
+        """Save the Ultralytics dataset configuration so runs remain relocatable."""
         import yaml
 
         data = {
@@ -206,6 +217,7 @@ class ISICYoloDatasetBuilder:
 
     @staticmethod
     def _link_or_copy(src: Path, dst: Path) -> None:
+        """Create a lightweight link if possible, otherwise fall back to a file copy."""
         try:
             dst.symlink_to(src)
         except (OSError, NotImplementedError):

@@ -46,6 +46,7 @@ def mask_to_bboxes(mask: np.ndarray) -> List[np.ndarray]:
     props = regionprops(labeled)
     boxes: List[np.ndarray] = []
     for prop in props:
+        # regionprops supplies boxes as (row_min, col_min, row_max, col_max); convert to (x1, y1, x2, y2).
         min_row, min_col, max_row, max_col = prop.bbox
         boxes.append(np.array([min_col, min_row, max_col, max_row], dtype=np.float32))
     return boxes
@@ -86,6 +87,7 @@ def plot_curves(
     ensure_dir(output_path.parent)
     plt.figure(figsize=(8, 5))
     for label, values in curves.items():
+        # Each metric or loss component is overlaid so the learning dynamics are directly comparable.
         plt.plot(values, label=label)
     plt.title(plot_config.title)
     plt.xlabel(plot_config.x_label)
@@ -105,6 +107,7 @@ def plot_ultralytics_training_curves(results_csv: Path, output_dir: Path) -> Dic
     outputs: Dict[str, Path] = {}
 
     if {"train/box_loss", "train/cls_loss", "metrics/mAP50"}.issubset(df.columns):
+        # Separate plots provide quick diagnostics for optimisation stability and detection quality.
         loss_curves = {
             "box_loss": df["train/box_loss"].tolist(),
             "cls_loss": df["train/cls_loss"].tolist(),
@@ -126,6 +129,7 @@ def plot_ultralytics_training_curves(results_csv: Path, output_dir: Path) -> Dic
             "mAP@0.5": df["metrics/mAP50"].tolist(),
         }
         if "metrics/mAP50-95" in df.columns:
+            # Include the stricter COCO-style average when Ultralytics exports it.
             metrics_curves["mAP@0.5:0.95"] = df["metrics/mAP50-95"].tolist()
         plot_curves(
             metrics_curves,
@@ -139,4 +143,3 @@ def plot_ultralytics_training_curves(results_csv: Path, output_dir: Path) -> Dic
         outputs["metrics"] = metrics_path
 
     return outputs
-
