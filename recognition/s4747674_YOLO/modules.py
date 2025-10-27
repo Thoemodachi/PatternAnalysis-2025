@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 def _load_ultralytics() -> Any:
-    """Safely import Ultralytics YOLO, raising a helpful error if unavailable."""
+    """Safely import Ultralytics YOLO, raising a helpful error if unavailable"""
     try:
         from ultralytics import YOLO
     except ModuleNotFoundError as error:
@@ -17,41 +17,41 @@ def _load_ultralytics() -> Any:
 
 @dataclass
 class YOLODetector:
-    """Thin wrapper around Ultralytics YOLO models."""
+    """Thin wrapper around Ultralytics YOLO models"""
 
     model_path: str = "yolov8n.pt"
     device: Optional[str] = None
 
     def __post_init__(self) -> None:
-        """Instantiate the underlying Ultralytics model once the wrapper is initialised."""
+        """Instantiate the underlying Ultralytics model once the wrapper is initialised"""
         YOLO = _load_ultralytics()
         self.model = YOLO(self.model_path)
 
     def train(self, **kwargs: Any) -> Any:
-        """Train the detector with keyword arguments forwarded to Ultralytics."""
+        """Train the detector with keyword arguments forwarded to Ultralytics"""
 
         if self.device is not None:
             kwargs.setdefault("device", self.device)
         return self.model.train(**kwargs)
 
     def val(self, **kwargs: Any) -> Any:
-        """Validate the detector, ensuring the requested device is respected."""
+        """Validate the detector, ensuring the requested device is respected"""
         if self.device is not None:
             kwargs.setdefault("device", self.device)
         return self.model.val(**kwargs)
 
     def predict(self, **kwargs: Any) -> Any:
-        """Run inference on the supplied inputs."""
+        """Run inference on the supplied inputs"""
         if self.device is not None:
             kwargs.setdefault("device", self.device)
         return self.model.predict(**kwargs)
 
     def export(self, **kwargs: Any) -> Any:
-        """Delegate model export (e.g. ONNX, TensorRT) to Ultralytics."""
+        """Delegate model export (e.g. ONNX, TensorRT) to Ultralytics"""
         return self.model.export(**kwargs)
 
     def save_training_artifacts(self, run_dir: Path) -> Dict[str, Path]:
-        """Collect key training outputs from a completed Ultralytics run."""
+        """Collect key training outputs from a completed Ultralytics run"""
         results_csv = run_dir / "results.csv"
         if not results_csv.exists():
             raise FileNotFoundError(

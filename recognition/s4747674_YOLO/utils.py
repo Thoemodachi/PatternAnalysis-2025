@@ -1,43 +1,35 @@
-"""Utility helpers for the ISIC lesion detection project."""
-
-from __future__ import annotations
-
+import matplotlib.pyplot as plt
+import numpy as np
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence
-
-import matplotlib.pyplot as plt
-import numpy as np
+from __future__ import annotations
 from PIL import Image
 from skimage.measure import regionprops
 
-
 def ensure_dir(path: Path) -> Path:
-    """Create *path* (and parents) if it does not already exist."""
+    """Create *path* (and parents) if it does not already exist"""
 
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-
 def load_image(path: Path) -> Image.Image:
-    """Load an RGB image from *path* using PIL."""
+    """Load an RGB image from *path* using PIL"""
 
     with path.open("rb") as handle:
         img = Image.open(handle)
         return img.convert("RGB")
 
-
 def load_mask(path: Path) -> np.ndarray:
-    """Load a binary segmentation mask as a boolean numpy array."""
+    """Load a binary segmentation mask as a boolean numpy array"""
 
     with path.open("rb") as handle:
         mask = Image.open(handle)
         return np.array(mask) > 0
 
-
 def mask_to_bboxes(mask: np.ndarray) -> List[np.ndarray]:
-    """Convert a binary mask to a list of bounding boxes in ``xyxy`` order."""
+    """Convert a binary mask to a list of bounding boxes in ``xyxy`` order"""
 
     if mask.ndim != 2:
         raise ValueError("Segmentation mask must be a single channel 2D array")
@@ -51,9 +43,8 @@ def mask_to_bboxes(mask: np.ndarray) -> List[np.ndarray]:
         boxes.append(np.array([min_col, min_row, max_col, max_row], dtype=np.float32))
     return boxes
 
-
 def xyxy_to_yolo(box: np.ndarray, width: int, height: int) -> np.ndarray:
-    """Convert bounding box from ``xyxy`` to YOLO ``xc yc w h`` normalised format."""
+    """Convert bounding box from ``xyxy`` to YOLO ``xc yc w h`` normalised format"""
 
     x1, y1, x2, y2 = box
     xc = (x1 + x2) / 2.0
@@ -62,13 +53,11 @@ def xyxy_to_yolo(box: np.ndarray, width: int, height: int) -> np.ndarray:
     h = y2 - y1
     return np.array([xc / width, yc / height, w / width, h / height], dtype=np.float32)
 
-
 def save_json(data: Mapping[str, object], path: Path) -> None:
-    """Persist *data* as JSON to *path*."""
+    """Persist *data* as JSON to *path*"""
 
     with path.open("w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, sort_keys=True)
-
 
 @dataclass
 class PlotConfig:
@@ -76,13 +65,12 @@ class PlotConfig:
     x_label: str
     y_label: str
 
-
 def plot_curves(
     curves: Mapping[str, Sequence[float]],
     output_path: Path,
     plot_config: PlotConfig,
 ) -> None:
-    """Plot each curve in *curves* and save to *output_path*."""
+    """Plot each curve in *curves* and save to *output_path*"""
 
     ensure_dir(output_path.parent)
     plt.figure(figsize=(8, 5))
@@ -97,9 +85,8 @@ def plot_curves(
     plt.savefig(output_path)
     plt.close()
 
-
 def plot_ultralytics_training_curves(results_csv: Path, output_dir: Path) -> Dict[str, Path]:
-    """Create training curves from an Ultralytics ``results.csv`` artifact."""
+    """Create training curves from an Ultralytics ``results.csv`` artifact"""
 
     import pandas as pd
 
